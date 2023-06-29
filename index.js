@@ -2,18 +2,36 @@ import XLSX from 'xlsx';
 import axios from 'axios';
 import * as fs from 'fs';
 
-const currentDate = new Date();
-currentDate.setDate(currentDate.getDate() - 1);
+const currentDate = new Date()
 
-const year = currentDate.getFullYear();
-const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-const day = String(currentDate.getDate()).padStart(2, '0');
+const range = {
+	startYear: 2018,
+	startMonth: 7,
+	endYear: currentDate.getFullYear(),
+	endMonth: currentDate.getMonth() + 1,
+}
 
-const dateString = `${year}-${month}-${day}`;
+const datesArray = [];
 
-const url = `https://www.euronextfx.com/docs/Fastmatch_Daily_Volume_${dateString}.xlsx`
+for (let year = range.startYear; year <= range.endYear; year++) {
+	const monthStart = (year === range.startYear) ? range.startMonth : 1;
+	const monthEnd = (year === range.endYear) ? range.endMonth : 12;
 
-axios.get(url, { responseType: 'arraybuffer' })
+	for (let month = monthStart; month <= monthEnd; month++) {
+		const monthString = String(month).padStart(2, '0');
+		const yearString = String(year);
+
+		const dateString = yearString + monthString + '01';
+		datesArray.push(dateString);
+	}
+}
+
+let data = [];
+
+for(const d of datesArray) {
+	const url = `https://www.360t.com/downloads/daily-volumes/DailyVolumes_${d}.xls`;
+
+	axios.get(url, { responseType: 'arraybuffer' })
 	.then(response => {
 		const workbook = XLSX.read(response.data, { type: 'array' });
 		const sheetName = workbook.SheetNames[0];
@@ -25,12 +43,14 @@ axios.get(url, { responseType: 'arraybuffer' })
 			return obj;
 		}, {});
 
-		createDataJson(data)
+		createDataJson(data,`data/${d}.json`)
 
 	})
 	.catch(error => {
 		console.error(error);
 	});
+}
+
 
 function createDataJson(data, path = "data.json") {
 	fs.writeFile(path, JSON.stringify(data), (err) => {
